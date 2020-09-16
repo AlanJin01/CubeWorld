@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Cube World</title>
+        <meta charset="utf-8"/>
+        <style>
+            body { margin: 0; }
+            canvas { display: block; }
+        </style>
+    </head>
+    <body>
+        <script src="./threejs.js"></script>
+        <script>
+            let scene = new THREE.Scene();
+            let camera = new THREE.PerspectiveCamera(20, window.innerWidth / window.innerHeight, 0.1, 1000);
+            let renderer = new THREE.WebGLRenderer();
+            scene.background = new THREE.Color(0x000000); // 设置场景颜色，这里默认设置了黑色
+            renderer.setSize(window.innerWidth, window.innerHeight); // 渲染尺寸
+            document.body.append(renderer.domElement);
+
+            // 颜色的十六进制数据
+            const colors = [0xE90FFF, 0xBA55D3, 0xEEEEEE, 0x7FFF00, 0xFFD700, 0xD2691E, 0x66CDAA];
+            
+            // 设置摄像机位置
+            const cameraPositionZ = 200;
+            camera.position.z = cameraPositionZ;
+
+            /* -------------- 下面是控制摄像机旋转的 -------------------- */
+            let originOffsetX = 0; // 刚开始点击时的初始x坐标
+            let originOffsetY = 0; // 刚开始点击时的初始y坐标
+            let offsetX = 0; // x偏移量
+            let offsetY = 0; // y偏移量
+            let isClicked = false; // 检测鼠标是否点击
+            document.addEventListener("mousedown", function(event) {
+                originOffsetX = event.clientX; // 初始x坐标
+                originOffsetY = event.clientY; // 初始y坐标
+                isClicked = true;
+            });
+            document.addEventListener("mousemove", function(event) {
+                if (isClicked == true) {
+                    offsetX = event.clientX - originOffsetX;
+                    offsetY = event.clientY - originOffsetY;
+                    let k = 0.11; // 系数
+                    let rotateAxis = new THREE.Vector3(-offsetY * k, -offsetX * k, 0);
+                    camera.rotateOnAxis(rotateAxis, Math.PI/100); 
+
+                    originOffsetX = event.clientX; // 更新初始x坐标
+                    originOffsetY = event.clientY; // 更新初始y坐标
+                }
+            });
+            document.addEventListener("contextmenu", function(event) { // 此demo中，鼠标右击不能算做点击事件
+                isClicked = false; 
+            });
+            document.addEventListener("mouseup", function(event) {
+                document.removeEventListener("mousemove", document.onmousemove); // 移除鼠标移动事件
+                isClicked = false;
+            });
+            /* ---------------------------------- */
+
+            // 创建各颜色的方块
+            function createCube() {
+                let colorIndex = Math.floor(Math.random() * 10); // 随机获取颜色索引值0~9
+                switch (colorIndex) { // 在这里我们得筛选一些索引值，改为合法的colors索引值，因为colors数组最高只支持索引值6
+                    case 4 || 5:
+                        colorIndex = 4;
+                        break;
+                    case 3 || 6:
+                        colorIndex = 3;
+                        break;
+                    case 2 || 7:
+                        colorIndex = 2;
+                        break;
+                    case 1:
+                        colorIndex = 1;
+                        break;
+                    case 8:
+                        colorIndex = 6;
+                        break;
+                    case 9:
+                        colorIndex = 0;
+                        break;
+                    default:
+                        colorIndex = 5; 
+                }
+                const colorHex = colors[colorIndex]; // 获取颜色十六进制值
+
+                const boxArrayX = new Int8Array(1); // 新建一个长度为1的数组
+                const boxArrayY = new Int8Array(1);
+                const boxArrayZ = new Int8Array(1);
+                window.crypto.getRandomValues(boxArrayX); // 系统随机生成数字并存放到boxArrayX数组里
+                window.crypto.getRandomValues(boxArrayY);  // 系统随机生成数字并存放到boxArrayY数组里
+                window.crypto.getRandomValues(boxArrayZ);  // 系统随机生成数字并存放到boxArrayZ数组里
+                const randomBoxLengthX = boxArrayX[0] / 40; // 随机的方块x轴方向上的长度
+                const randomBoxLengthY = boxArrayY[0] / 40; // 随机的方块y轴方向上的长度
+                const randomBoxLengthZ = boxArrayZ[0] / 40; // 随机的方块z轴方向上的长度
+
+                const geometry = new THREE.BoxGeometry(randomBoxLengthX, randomBoxLengthY, randomBoxLengthZ); // 新建随机长度的方块
+                const randomRotateK = Math.floor(Math.random() * 10); // 随机生成的旋转系数
+                geometry.rotateY(Math.PI / randomRotateK); // 沿y轴旋转一定角度
+                const material = new THREE.MeshBasicMaterial({color: colorHex});
+                const randomOpacity = Math.random().toFixed(1); // 求随机透明度值，范围 0.0~1.0
+                material.transparent = true; // 允许调整材质透明度
+                material.opacity = randomOpacity; // 设置透明度
+                let cube = new THREE.Mesh(geometry, material);
+
+                const arr = new Int8Array(1);
+                const arr2 = new Int8Array(1);
+                window.crypto.getRandomValues(arr); // 获取随机值
+                window.crypto.getRandomValues(arr2); // 获取随机值
+                const randomPositionX = arr[0] / 4;
+                const randomPositionY = arr2[0] / 6;
+                cube.position.x = randomPositionX; // 设置方块初始x轴坐标位置
+                cube.position.y = randomPositionY; // 设置方块初始y轴坐标位置
+                /* 方块一开始被创建时,z轴坐标默认是0 */
+                scene.add(cube);
+                
+                return cube;
+            }
+
+            /* --------------- 下面是通过计时的方式更换背景颜色 ---------------------------- */
+            let firstTime = Date.now(); // 一开始的时间戳
+            let timeOffset = 0;
+            setInterval(() => {
+                timeOffset = Date.now() - firstTime;
+                if (timeOffset >= 35000) { // 过35秒之后换白色背景
+                    const bgColor = new THREE.Color(0xFFFFFF);
+                    scene.background = bgColor;
+                }
+            }, 1000);
+            /* ------------------------------------------- */
+
+            // 设置动画
+            setTimeout(function showCubeAnimate() {
+                setTimeout(showCubeAnimate, 0);
+                const theCube = createCube(); // 获取方块对象
+                function animate() {
+                    requestAnimationFrame(animate);
+                    theCube.position.z += 1; // 加的数值越大，移动的就越快
+                    if (theCube.position.z > cameraPositionZ) {
+                        // 如果方块移动到摄像机镜头后面，就删除，如果这里不写返回的话，会很卡
+                        theCube.visible = false;
+                        return;
+                    }
+                    renderer.render(scene, camera);
+                }
+                // 开始动画
+                animate(); 
+            }, 0);
+        </script>
+    </body>
+</html>
